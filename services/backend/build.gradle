@@ -1,7 +1,13 @@
 plugins { id 'java'; id 'org.springframework.boot' version '3.3.4';
     id 'io.spring.dependency-management' version '1.1.6' }
+
 repositories { mavenCentral() }
+
+def lombokVersion = "1.18.34"
+
 dependencies {
+    implementation project(':services:question-provider')
+
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-jdbc'
@@ -14,14 +20,23 @@ dependencies {
     // Optional: explicit Nimbus dependency (often pulled transitively)
     implementation 'com.nimbusds:nimbus-jose-jwt:9.37.3'
 
+    // --- Lombok (compile-time only) ---
+    compileOnly "org.projectlombok:lombok:${lombokVersion}"
+    annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+    testCompileOnly "org.projectlombok:lombok:${lombokVersion}"
+    testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+
     // --- TESTS ---
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.mockito:mockito-inline:5.2.0'
     testImplementation 'org.testcontainers:junit-jupiter'
     testImplementation 'org.testcontainers:postgresql'
 }
+
 ext { set('springCloudVersion', '2023.0.3') }
+
 dependencyManagement { imports { mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}" } }
+
 test {
     useJUnitPlatform()    // обычно boot плагин ставит сам, но явно — не повредит
 }

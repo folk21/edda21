@@ -1,6 +1,6 @@
 package com.edda21.backend.adapter.in.web.question;
 
-import com.edda21.backend.domain.question.QuestionSourceMode;
+import com.edda21.qp.domain.model.QuestionSourceMode;
 import java.util.Map;
 import java.util.UUID;
 

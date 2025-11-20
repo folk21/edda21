@@ -1,5 +1,6 @@
 package com.edda21.backend.domain.question;
 
+import com.edda21.qp.domain.model.QuestionSourceMode;
 import jakarta.persistence.*;
 import java.time.OffsetDateTime;
 import java.util.UUID;

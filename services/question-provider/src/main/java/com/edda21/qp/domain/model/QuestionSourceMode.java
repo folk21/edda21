@@ -1,4 +1,4 @@
-package com.edda21.backend.domain.question;
+package com.edda21.qp.domain.model;
 
 /** Defines how questions should be obtained for a session. */
 public enum QuestionSourceMode {

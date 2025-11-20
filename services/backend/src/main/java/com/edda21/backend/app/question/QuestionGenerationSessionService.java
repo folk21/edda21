@@ -8,7 +8,7 @@ import com.edda21.backend.adapter.out.persistence.jpa.QuestionGenerationSessionR
 import com.edda21.backend.app.context.InstructorContextService;
 import com.edda21.backend.domain.question.QuestionGenerationSession;
 import com.edda21.backend.domain.question.QuestionGenerationSessionStatus;
-import com.edda21.backend.domain.question.QuestionSourceMode;
+import com.edda21.qp.domain.model.QuestionSourceMode;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.UUID;

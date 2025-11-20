@@ -1,7 +1,7 @@
 package com.edda21.backend.adapter.in.web.question;
 
 import com.edda21.backend.domain.question.QuestionGenerationSessionStatus;
-import com.edda21.backend.domain.question.QuestionSourceMode;
+import com.edda21.qp.domain.model.QuestionSourceMode;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 

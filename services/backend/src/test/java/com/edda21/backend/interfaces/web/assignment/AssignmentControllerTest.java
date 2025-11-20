@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.edda21.backend.adapter.in.web.assignment.AssignmentController;
+import com.edda21.backend.adapter.out.http.QuestionProviderClient;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -20,7 +21,8 @@ class AssignmentControllerTest {
   void generate_publishesToKafka() throws Exception {
     @SuppressWarnings("unchecked")
     KafkaTemplate<String, Object> kafka = Mockito.mock(KafkaTemplate.class);
-    var controller = new AssignmentController(kafka);
+    QuestionProviderClient questionProviderClient = Mockito.mock(QuestionProviderClient.class);
+    var controller = new AssignmentController(kafka, questionProviderClient);
     MockMvc mvc = MockMvcBuilders.standaloneSetup(controller).build();
 
     mvc.perform(
