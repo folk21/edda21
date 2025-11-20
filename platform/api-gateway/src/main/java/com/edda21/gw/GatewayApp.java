@@ -1,0 +1,1 @@
+package com.edda21.gw; import org.springframework.boot.*; import org.springframework.boot.autoconfigure.*; @SpringBootApplication public class GatewayApp { public static void main(String[] a){ SpringApplication.run(GatewayApp.class,a);} }

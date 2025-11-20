@@ -1,0 +1,4 @@
+spring.application.name: llm-bridge
+server.port: 8098
+generator.mode: ${GENERATOR_MODE:stub}
+logging.level.com.edda21.llm: ${LLM_LOG_LEVEL:INFO}

@@ -1,0 +1,2 @@
+generator.mode: ${GENERATOR_MODE:stub}
+logging.level.com.edda21.llm: DEBUG

@@ -1,0 +1,157 @@
+version: '3.9'
+
+networks:
+  edda-net:
+
+volumes:
+  pgdata:
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: edda-postgres
+    environment:
+      POSTGRES_DB: edtech
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports: ['5432:5432']
+    networks: [edda-net]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d edtech"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redpanda:
+    image: redpanda/redpanda:latest
+    container_name: edda-redpanda
+    command:
+      ['redpanda','start','--overprovisioned','--smp','1','--memory','512M','--reserve-memory','0M','--check=false',
+       '--kafka-addr','0.0.0.0:9092','--advertise-kafka-addr','redpanda:9092']
+    ports: ['9092:9092']
+    networks: [edda-net]
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster info --brokers=redpanda:9092 >/dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  service-registry:
+    image: edtech/service-registry:dev
+    container_name: edda-service-registry
+    ports: ['8761:8761']
+    networks: [edda-net]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8761"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  config-server:
+    image: edtech/config-server:dev
+    container_name: edda-config-server
+    ports: ['8888:8888']
+    networks: [edda-net]
+    environment:
+      # В образе задан профайл docker и native backend; путь ниже должен указывать на реальную папку.
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_CLOUD_CONFIG_SERVER_NATIVE_SEARCH_LOCATIONS: /config-repo
+    volumes:
+      # ЕСЛИ compose лежит в корне репо, используй ./config-repo
+      # если в подкаталоге — поправь путь соответственно
+      - ./config-repo:/config-repo:ro
+    depends_on:
+      service-registry:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8888/actuator/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  api-gateway:
+    image: edtech/api-gateway:dev
+    container_name: edda-api-gateway
+    ports: ['8080:8080']
+    networks: [edda-net]
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://service-registry:8761/eureka/
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
+    depends_on:
+      service-registry:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  backend:
+    image: edtech/backend:dev
+    container_name: edda-backend
+    networks: [edda-net]
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://service-registry:8761/eureka/
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
+      # Kafka
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      # Если backend сам не ходит в БД — можно убрать следующие строки.
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/edtech
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+    depends_on:
+      service-registry:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+
+  question-provider:
+    image: edtech/question-provider:dev
+    container_name: edda-question-provider
+    networks: [edda-net]
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://service-registry:8761/eureka/
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
+      # Kafka
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      # Postgres
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/edtech
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      # LLM bridge HTTP base (если сервис обращается по прямому URL)
+      LLM_BRIDGE_BASEURL: http://llm-bridge:8098
+    depends_on:
+      service-registry:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+
+  llm-bridge:
+    image: edtech/llm-bridge:dev
+    container_name: edda-llm-bridge
+    ports: ['8098:8098']
+    networks: [edda-net]
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://service-registry:8761/eureka/
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
+      # По умолчанию — детерминированный stub
+      GENERATOR_MODE: stub
+      # Для OpenAI раскомментируй:
+      # GENERATOR_MODE: llm
+      # SPRING_AI_OPENAI_API_KEY: ${SPRING_AI_OPENAI_API_KEY}
+      # SPRING_AI_MODEL: gpt-4o-mini
+    depends_on:
+      service-registry:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy

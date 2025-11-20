@@ -1,0 +1,7 @@
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: backend
+          uri: lb://backend
+          predicates: [ Path=/assignments/** ]

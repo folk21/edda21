@@ -1,0 +1,1 @@
+package com.edda21.registry; import org.springframework.boot.*; import org.springframework.boot.autoconfigure.*; import org.springframework.cloud.netflix.eureka.server.*; @EnableEurekaServer @SpringBootApplication public class RegistryApp { public static void main(String[] a){ SpringApplication.run(RegistryApp.class,a);} }

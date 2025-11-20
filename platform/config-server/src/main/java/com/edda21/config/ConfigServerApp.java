@@ -1,0 +1,1 @@
+package com.edda21.config; import org.springframework.boot.*; import org.springframework.boot.autoconfigure.*; import org.springframework.cloud.config.server.*; @EnableConfigServer @SpringBootApplication public class ConfigServerApp { public static void main(String[] a){ SpringApplication.run(ConfigServerApp.class,a);} }

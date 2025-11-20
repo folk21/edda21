@@ -1,0 +1,66 @@
+package com.edda21.llm.adapter.in.web;
+
+import static com.edda21.llm.domain.model.QuestionType.OPEN;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import com.edda21.llm.domain.model.QuestionDTO;
+import com.edda21.llm.domain.port.out.QuestionGeneratorClient;
+import java.util.List;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+
+@WebMvcTest(controllers = QuestionGenerationController.class)
+class QuestionGenerationControllerTest {
+
+  @Autowired MockMvc mvc;
+
+  @MockBean QuestionGeneratorClient generator;
+
+  @Test
+  void postGenerate_returnsQuestions() throws Exception {
+    // given
+    var dto =
+        new QuestionDTO("LLM", "MATH", "algebra", "B1", OPEN, "What is 2+2?", null, "4", null);
+
+    Mockito.when(
+            generator.generate(
+                Mockito.anyString(),
+                Mockito.anyString(),
+                Mockito.anyString(),
+                Mockito.any(),
+                Mockito.anyInt(),
+                Mockito.anyString()))
+        .thenReturn(List.of(dto));
+
+    // when / then
+    mvc.perform(
+            post("/llm/generate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"subject\":\"MATH\",\"topic\":\"algebra\",\"count\":1}"))
+        .andExpect(status().isOk())
+        // лучше совместимость, т.к. Spring может добавить charset
+        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+        .andExpect(jsonPath("$[0].subject").value("MATH"))
+        .andExpect(jsonPath("$[0].body").value("What is 2+2?"));
+
+    // дополнительно проверяем, что контроллер пробросил параметры правильно
+    verify(generator)
+        .generate(
+            eq("MATH"), // subject из запроса
+            eq("algebra"), // topic из запроса
+            eq("B1"), // default difficulty
+            eq(OPEN), // default type -> fromJson("OPEN")
+            eq(1), // count из запроса
+            eq("en")); // default locale
+  }
+}

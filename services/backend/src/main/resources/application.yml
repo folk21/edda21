@@ -1,0 +1,11 @@
+spring.application.name: backend
+server.port: 8082
+spring.datasource.url: ${JDBC_URL:jdbc:postgresql://localhost:5432/edtech}
+spring.datasource.username: ${JDBC_USER:postgres}
+spring.datasource.password: ${JDBC_PASS:postgres}
+eureka.client.serviceUrl.defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
+security:
+  jwt:
+    secret: ${JWT_SECRET:dev-secret-change-me}
+    issuer: edda21-backend
+    access-token-ttl-seconds: 3600

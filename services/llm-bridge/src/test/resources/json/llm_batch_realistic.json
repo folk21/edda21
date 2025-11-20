@@ -1,0 +1,42 @@
+[
+  {
+    "source": "LLM",
+    "subject": "HISTORY",
+    "topic": "europe",
+    "difficulty": "B1",
+    "type": "OPEN",
+    "body": "Who was the first emperor of Rome?",
+    "correct": "Augustus",
+    "explanation": "Octavian (later called Augustus) became the first Roman emperor after the end of the Republic."
+  },
+  {
+    "source": "LLM",
+    "subject": "MATH",
+    "topic": "arithmetic",
+    "difficulty": "A2",
+    "type": "MULTI_CHOICE",
+    "body": "What is 3 + 3?",
+    "options": ["5", "6", "7", "8"],
+    "correct": "6"
+  },
+  {
+    "source": "LLM",
+    "subject": "CHEMISTRY",
+    "topic": "atomic-structure",
+    "difficulty": "B2",
+    "type": "OPEN",
+    "body": "Which subatomic particle carries a positive charge?",
+    "correct": "Proton",
+    "explanation": "Protons are positively charged, neutrons are neutral, and electrons are negatively charged."
+  },
+  {
+    "source": "LLM",
+    "subject": "GEOGRAPHY",
+    "topic": "capitals",
+    "difficulty": "A1",
+    "type": "MULTI_CHOICE",
+    "body": "What is the capital of France?",
+    "options": ["Berlin", "Rome", "Paris", "Madrid"],
+    "correct": "Paris"
+  }
+]
