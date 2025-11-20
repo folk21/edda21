@@ -1,0 +1,102 @@
+[
+  {
+    "id": "00000000-0000-0000-0000-000000000001",
+    "subject": "MATH",
+    "difficulty": "EASY"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000002",
+    "subject": "MATH",
+    "difficulty": "EASY"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000003",
+    "subject": "MATH",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000004",
+    "subject": "MATH",
+    "difficulty": "HARD"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000005",
+    "subject": "MATH",
+    "difficulty": "HARD"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000006",
+    "subject": "PHYS",
+    "difficulty": "EASY"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000007",
+    "subject": "PHYS",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000008",
+    "subject": "PHYS",
+    "difficulty": "HARD"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000009",
+    "subject": "CHEM",
+    "difficulty": "EASY"
+  },
+  {
+    "id": "00000000-0000-0000-0000-00000000000a",
+    "subject": "CHEM",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "id": "00000000-0000-0000-0000-00000000000b",
+    "subject": "CHEM",
+    "difficulty": "HARD"
+  },
+  {
+    "id": "00000000-0000-0000-0000-00000000000c",
+    "subject": "BIO",
+    "difficulty": "EASY"
+  },
+  {
+    "id": "00000000-0000-0000-0000-00000000000d",
+    "subject": "BIO",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "id": "00000000-0000-0000-0000-00000000000e",
+    "subject": "BIO",
+    "difficulty": "HARD"
+  },
+  {
+    "id": "00000000-0000-0000-0000-00000000000f",
+    "subject": "HISTORY",
+    "difficulty": "EASY"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000010",
+    "subject": "HISTORY",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000011",
+    "subject": "HISTORY",
+    "difficulty": "HARD"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000012",
+    "subject": "CS",
+    "difficulty": "EASY"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000013",
+    "subject": "CS",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000014",
+    "subject": "CS",
+    "difficulty": "HARD"
+  }
+]

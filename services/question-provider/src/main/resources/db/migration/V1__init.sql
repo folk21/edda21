@@ -1,1 +1,33 @@
-create extension if not exists pgcrypto; create table if not exists question(id uuid primary key, source varchar(16), subject varchar(64), difficulty varchar(8), body text, correct text); create table if not exists assignment(id uuid primary key, course_id uuid, title text); create table if not exists assignment_question(assignment_id uuid, question_id uuid references question(id) on delete cascade, variant int default 0, points int default 1, ordering int default 0); create table if not exists answer(id uuid primary key default gen_random_uuid(), assignment_id uuid, question_id uuid, student_id uuid, score int default 0, answered_at timestamp default now());
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+CREATE TABLE IF NOT EXISTS question (
+    id uuid PRIMARY KEY,
+    source varchar(16),
+    subject varchar(64),
+    difficulty varchar(8),
+    body text,
+    correct text
+);
+
+CREATE TABLE IF NOT EXISTS assignment (
+    id uuid PRIMARY KEY,
+    course_id uuid,
+    title text
+);
+
+CREATE TABLE IF NOT EXISTS assignment_question (
+    assignment_id uuid,
+    question_id uuid REFERENCES question(id) ON DELETE CASCADE,
+    variant int DEFAULT 0,
+    points int DEFAULT 1,
+    ordering int DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS answer (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    assignment_id uuid,
+    question_id uuid,
+    student_id uuid,
+    score int DEFAULT 0,
+    answered_at timestamp DEFAULT now()
+);

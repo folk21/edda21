@@ -19,6 +19,26 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+/**
+ * Web MVC slice tests for {@link QuestionGenerationController}.
+ *
+ * <p>This test class uses {@link WebMvcTest} together with {@link MockMvc} to exercise the HTTP
+ * layer around {@link QuestionGenerationController} without starting the full Spring Boot context.
+ *
+ * <p>The controller is treated as a black box: requests are sent as real HTTP calls to the
+ * `/llm/generate` endpoint, and responses are asserted at the JSON level using {@code jsonPath} and
+ * status/Content-Type matchers.
+ *
+ * <p>The domain-level dependency {@link QuestionGeneratorClient} is replaced with a {@link
+ * MockBean}. This allows tests to control the generated questions via Mockito stubbing and to focus
+ * only on:
+ *
+ * <p>- Mapping of the incoming JSON request body to controller arguments.
+ *
+ * <p>- Correct invocation of the generator with expected parameters.
+ *
+ * <p>- Mapping of the returned DTOs to the HTTP JSON response produced by the controller.
+ */
 @WebMvcTest(controllers = QuestionGenerationController.class)
 class QuestionGenerationControllerTest {
 
