@@ -39,7 +39,7 @@ services:
       retries: 30
 
   service-registry:
-    image: edtech/service-registry:dev
+    image: edda21/service-registry:dev
     container_name: edda-service-registry
     ports: ['8761:8761']
     networks: [edda-net]
@@ -50,7 +50,7 @@ services:
       retries: 30
 
   config-server:
-    image: edtech/config-server:dev
+    image: edda21/config-server:dev
     container_name: edda-config-server
     ports: ['8888:8888']
     networks: [edda-net]
@@ -72,7 +72,7 @@ services:
       retries: 30
 
   api-gateway:
-    image: edtech/api-gateway:dev
+    image: edda21/api-gateway:dev
     container_name: edda-api-gateway
     ports: ['8080:8080']
     networks: [edda-net]
@@ -91,7 +91,7 @@ services:
       retries: 30
 
   backend:
-    image: edtech/backend:dev
+    image: edda21/backend:dev
     container_name: edda-backend
     networks: [edda-net]
     environment:
@@ -112,7 +112,7 @@ services:
         condition: service_healthy
 
   question-provider:
-    image: edtech/question-provider:dev
+    image: edda21/question-provider:dev
     container_name: edda-question-provider
     networks: [edda-net]
     environment:
@@ -137,7 +137,7 @@ services:
         condition: service_healthy
 
   llm-bridge:
-    image: edtech/llm-bridge:dev
+    image: edda21/llm-bridge:dev
     container_name: edda-llm-bridge
     ports: ['8098:8098']
     networks: [edda-net]

@@ -1,0 +1,3 @@
+spring.application.name: db-schema
+spring.flyway.enabled: true
+spring.flyway.locations: classpath:db/migration

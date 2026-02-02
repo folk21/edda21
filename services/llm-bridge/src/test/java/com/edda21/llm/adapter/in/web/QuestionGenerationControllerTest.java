@@ -68,19 +68,19 @@ class QuestionGenerationControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"subject\":\"MATH\",\"topic\":\"algebra\",\"count\":1}"))
         .andExpect(status().isOk())
-        // лучше совместимость, т.к. Spring может добавить charset
+        // Use compatible content type matcher because Spring may append charset to the response.
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
         .andExpect(jsonPath("$[0].subject").value("MATH"))
         .andExpect(jsonPath("$[0].body").value("What is 2+2?"));
 
-    // дополнительно проверяем, что контроллер пробросил параметры правильно
+    // Additionally verify that the controller forwarded parameters correctly to the generator.
     verify(generator)
         .generate(
-            eq("MATH"), // subject из запроса
-            eq("algebra"), // topic из запроса
+            eq("MATH"), // subject from the request
+            eq("algebra"), // topic from the request
             eq("B1"), // default difficulty
             eq(OPEN), // default type -> fromJson("OPEN")
-            eq(1), // count из запроса
+            eq(1), // count from the request
             eq("en")); // default locale
   }
 }

@@ -1,0 +1,46 @@
+plugins {
+    id 'java-library'
+    id 'io.spring.dependency-management' version '1.1.6'
+}
+
+group = 'com.edda21'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencyManagement {
+    imports {
+        // Use the same Spring Boot BOM version as in other modules
+        mavenBom "org.springframework.boot:spring-boot-dependencies:3.3.4"
+    }
+}
+
+dependencies {
+    // Schema module with DDL and migrations
+    implementation project(':services:db-schema')
+
+    // Spring JDBC and test support (JUnit + Spring Test, etc.)
+    implementation 'org.springframework.boot:spring-boot-starter-jdbc'
+
+    // Export Spring Boot test support to consumers' tests
+    api 'org.springframework.boot:spring-boot-starter-test'
+
+    // Export Testcontainers so that consumers' tests see the annotations and containers
+    api 'org.testcontainers:junit-jupiter'
+    api 'org.testcontainers:postgresql'
+
+    // Jackson for TestJsonUtils (ObjectMapper, TypeReference, etc.)
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+}
+
+test {
+    useJUnitPlatform()
+}
