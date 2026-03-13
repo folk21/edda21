@@ -1,5 +1,5 @@
 # Build from repo root:
-# docker build -t edtech/service-registry -f platform/service-registry/Dockerfile .
+# docker build -t edda21/service-registry -f platform/service-registry/Dockerfile .
 
 FROM eclipse-temurin:21-jre AS extractor
 WORKDIR /workspace

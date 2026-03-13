@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 /**
- * Type-safe question kind used across the EdTech platform.
+ * Type-safe question kind used across the Edda21 platform.
  *
  * <p>Design notes: - We accept case-insensitive JSON strings ("open", "OPEN", "MULTI_choice",
  * "multi_choice", ...). - @JsonCreator makes Jackson convert incoming JSON -> enum. - @JsonValue

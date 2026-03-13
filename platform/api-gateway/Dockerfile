@@ -1,5 +1,5 @@
 # Build from repo root:
-# docker build -t edtech/api-gateway -f platform/api-gateway/Dockerfile .
+# docker build -t edda21/api-gateway -f platform/api-gateway/Dockerfile .
 
 FROM eclipse-temurin:21-jre AS extractor
 WORKDIR /workspace

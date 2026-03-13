@@ -31,7 +31,7 @@ public abstract class AbstractPostgresIntegrationTest {
   @SuppressWarnings("resource")
   protected static final PostgreSQLContainer<?> POSTGRES =
       new PostgreSQLContainer<>("postgres:16-alpine")
-          .withDatabaseName("edtech")
+          .withDatabaseName("edda21")
           .withUsername("postgres")
           .withPassword("postgres");
 

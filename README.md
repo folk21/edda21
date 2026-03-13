@@ -1,18 +1,20 @@
 # Edda21 Microservices (Java-only) — Spring Cloud + Kafka (Redpanda) + Postgres + Spring AI
 
-A microservices project for an EdTech-like platform.  
+A microservices project for an EdTech-like platform.
 It uses:
 
 - **Spring Cloud** patterns: Config Server, Eureka Service Registry, API Gateway.
 - **Kafka** (via **Redpanda**) for async communications between services.
 - **PostgreSQL** for persistent storage with **Flyway** migrations.
-- **Spring AI** (Java) as an LLM bridge (no Python). Supports **MOCK** and **OpenAI** modes.
+- **Spring AI** (Java) as an LLM bridge (no Python in this repo):
+  - `generator.mode=stub` (deterministic, no credentials)
+  - `generator.mode=llm` (OpenAI via Spring AI)
 
 ---
 
 ## 1) Project description
 
-Edda21 is a compact Java-based microservices system that integrates Large Language Models (LLMs) into an EdTech scenario
+Edda21 is a compact Java-based microservices system that integrates Large Language Models (LLMs) into an Edda21 scenario
 for automatic question generation, with a strong focus on clean architecture and transparent infrastructure.
 
 The **LLM bridge** service (`llm-bridge`) is built on **Java** and **Spring Boot**, using a **hexagonal
@@ -24,7 +26,7 @@ the Spring AI client:
 
 ```java
 String execute(String system, String user, OpenAiChatOptions options);
-````
+```
 
 This hides the concrete LLM client and configuration from the rest of the application. Application services construct
 the system/user prompts and options (model, temperature, etc.) and delegate to `ChatExecutor`. Because only this
@@ -45,222 +47,57 @@ List<QuestionDTO> generate(
 
 Implementations of `QuestionGeneratorClient` may use LLMs via `ChatExecutor`, rule-based logic, or external HTTP APIs.
 From the perspective of the rest of the system, they are just “question generators” that return structured `QuestionDTO`
-objects for a given assignment configuration.
-
-On the write side, persistence in the **question-provider** service is exposed through the `QuestionWritePort`. The
-concrete adapter is `QuestionRepo`, a **plain JDBC** implementation built on **NamedParameterJdbcTemplate**. It
-intentionally does not use JPA/Hibernate: all SQL is explicit, and the mapping between domain data and database schema
-is easy to inspect. `QuestionRepo` inserts each generated question into a `question` table and then links it to an
-assignment using an `assignment_question` join table. The method is annotated with `@Transactional`, ensuring that both
-inserts for each question (and the entire batch) are executed in a single database transaction. If one insert fails
-(for example, because of a `NOT NULL` constraint on `body`), the transaction is rolled back and no partial data is
-committed.
-
-Database schema management is handled by **Flyway**. Migrations define the `question` and `assignment_question` tables
-(and other tables like `question_generation_session`) and can introduce constraints (such as mandatory columns) that
-are directly used in integration tests. The combination of Flyway + plain JDBC gives a clear, migration-driven schema
-with simple SQL-focused repositories.
-
-The project includes **Spring-based integration tests** that exercise the full stack: Flyway migrations, JDBC
-repositories, and transaction management. A typical test creates an assignment ID, attempts to insert a batch of two
-questions where one is invalid (e.g., missing `body`), expects a `DataIntegrityViolationException`, and then verifies
-via `SELECT count(*)` that both `question` and `assignment_question` tables remain empty. This validates that
-`@Transactional` semantics around `QuestionRepo.saveQuestions` work as intended.
-
-In terms of structure and dependencies:
-
-* **Domain / application layer** depends only on:
-
-    * `QuestionGeneratorClient` (port for LLM-based generators),
-    * `QuestionWritePort` (port for persistence),
-    * `ChatExecutor` (port for low-level LLM calls).
-
-* **Infrastructure / adapter layer** provides:
-
-    * Spring AI–based implementation of `ChatExecutor`,
-    * JDBC-based implementation of `QuestionWritePort` (`QuestionRepo`),
-    * Concrete generator implementations that compose `ChatExecutor` and map LLM responses to `QuestionDTO`,
-    * REST controllers and Kafka listeners that expose use cases externally.
-
-Together, these components form a small, focused LLM-powered EdTech backend: LLMs are integrated through Spring AI,
-persistence goes through JDBC and Flyway, and the overall design uses ports-and-adapters to keep the core logic
-framework-agnostic, testable, and easy to extend.
+objects.
 
 ---
 
-## 2) High-Level Architecture
+## 2) Services
 
-```mermaid
-flowchart LR
-  client[Client UI]
-  gw[API Gateway]
-  be[backend]
-  kafka[(Kafka / Redpanda)]
-  qp[question-provider]
-  db[(PostgreSQL)]
-  llm[llm-bridge · Spring AI]
+**Platform (Spring Cloud):**
 
-  client -->|HTTP| gw
-  gw -->|/assignments, /auth, /courses, ...| be
-  be -->|produce: questions.request| kafka
-  qp -->|consume: questions.request| kafka
-  qp -->|HTTP: /llm/generate| llm
-  qp -->|JDBC| db
-```
+- `service-registry` — Eureka (8761)
+- `config-server` — Config Server (8888)
+- `api-gateway` — API Gateway (8080)
 
-**Key idea:** the instructor-facing **backend** does not block on LLM calls. It publishes a message to Kafka and
-can immediately return `202 Accepted` (or similar). The **question-provider** consumes messages, optionally mixes in
-“bank” questions from DB, calls **llm-bridge** when needed, and persists results to **Postgres**. The status of
-question generation is tracked in a `question_generation_session` table and exposed via REST endpoints so that the UI
-can poll for completion.
+**Domain services:**
+
+- `backend` — auth + assignments + question generation sessions (8082)
+- `question-provider` — DB persistence + Kafka consumers (8083)
+- `llm-bridge` — LLM-backed question generation (8098)
+
+**Shared modules:**
+
+- `db-schema` — Flyway migrations shared as a dependency
+- `test-support` — shared test helpers
 
 ---
 
-## 3) Repository Structure
+## 3) Prerequisites
 
-```text
-.
-├─ docker-compose.yml                  # Orchestrates all services locally
-├─ config-repo/
-│  └─ api-gateway-docker.yml           # Gateway routes while in docker profile
-├─ platform/
-│  ├─ service-registry/                # Eureka server (com.edda21.*)
-│  ├─ config-server/                   # Spring Cloud Config (native / file-based)
-│  └─ api-gateway/                     # Spring Cloud Gateway
-└─ services/
-   ├─ backend/                         # REST API for instructors/students; publishes Kafka messages
-   ├─ question-provider/               # Kafka consumer; persists to Postgres; Flyway migrations
-   └─ llm-bridge/                      # Spring AI; MOCK or OpenAI
-```
-
-### 3.1. Package layout (Ports & Adapters)
-
-#### 3.1.1. `llm-bridge`
-
-```text
-com.edda21.llm
-  ├─ LlmBridgeApp                          # Spring Boot application
-  ├─ domain/
-  │   ├─ model/                            # QuestionDTO, QuestionType, Difficulty
-  │   ├─ dto/                              # QuestionSetDTO
-  │   └─ port/
-  │       └─ out/                          # QuestionGeneratorClient, ChatExecutor
-  ├─ application/
-  │   ├─ GenerationService                 # orchestrates question generation
-  │   └─ PromptService                     # builds prompts for LLM calls
-  ├─ shared/
-  │   ├─ LlmConstants                      # common constants (model names, etc.)
-  │   └─ json/
-  │       ├─ JsonMini                      # small JSON helper
-  │       └─ JsonUtil                      # JSON utilities for DTOs
-  └─ adapter/
-      ├─ in/
-      │   └─ web/                          # QuestionGenerationController (HTTP API)
-      └─ out/
-          ├─ llm/                          # SpringAiQuestionGeneratorClient, SpringAiChatExecutor
-          └─ stub/                         # StubQuestionGeneratorClient
-```
-
-#### 3.1.2. `question-provider`
-
-```text
-com.edda21.qp
-  ├─ QpApp                                  # Spring Boot application
-  ├─ domain/
-  │   └─ port/
-  │       └─ out/                           # QuestionWritePort (persistence abstraction)
-  ├─ application/
-  │   └─ llm/
-  │       └─ LlmResultProcessorService      # processes LLM responses: insert questions, update session
-  └─ adapter/
-      ├─ in/
-      │   └─ messaging/
-      │       └─ kafka/
-      │           ├─ KafkaConsumerCfg       # consumer configuration
-      │           ├─ QuestionListener       # (if used) other Kafka listeners
-      │           ├─ LlmResponseKafkaListener
-      │           ├─ LlmQuestionsResponsePayload
-      │           └─ LlmQuestionDto
-      └─ out/
-          └─ persistence/
-              └─ QuestionRepo               # plain JDBC implementation of QuestionWritePort
-```
-
-#### 3.1.3. `backend`
-
-```text
-com.edda21.backend
-  ├─ BackendApp                             # Spring Boot application
-  ├─ domain/
-  │   └─ model/
-  │       ├─ QuestionGenerationSession      # domain representation of session (if used)
-  │       ├─ QuestionGenerationSessionStatus
-  │       ├─ QuestionSourceMode             # DB_ONLY, DB_THEN_LLM, LLM_ONLY
-  │       └─ UserRole                       # INSTRUCTOR, STUDENT, ADMIN, ...
-  ├─ application/
-  │   ├─ auth/
-  │   │   ├─ AuthUser                       # authenticated user view
-  │   │   └─ UserAuthService                # DB-based auth, maps to roles/persons
-  │   ├─ context/
-  │   │   ├─ InstructorContextService       # extracts instructorId from JWT
-  │   │   └─ StudentContextService          # extracts studentId from JWT
-  │   └─ question/
-  │       ├─ QuestionGenerationSessionService
-  │       └─ QuestionSelectionService       # selects existing questions from DB
-  └─ adapter/
-      ├─ in/
-      │   └─ web/
-      │       ├─ auth/
-      │       │   └─ AuthController         # login endpoint → JWT
-      │       ├─ assignment/
-      │       │   └─ AssignmentController   # assignment endpoints
-      │       └─ question/
-      │           ├─ QuestionGenerationSessionController
-      │           ├─ QuestionGenerationSessionCreateRequest
-      │           └─ QuestionGenerationSessionResponse
-      └─ out/
-          ├─ security/
-          │   ├─ SecurityConfig             # Spring Security, JWT resource server
-          │   └─ JwtTokenService            # generates tokens with role/instructorId/studentId
-          ├─ messaging/
-          │   └─ kafka/
-          │       ├─ KafkaProducerCfg       # producer configuration
-          │       ├─ QuestionsRequestProducer
-          │       └─ QuestionGenerationRequestPayload
-          └─ persistence/
-              └─ jpa/
-                  └─ QuestionGenerationSessionRepository
-```
-
-> All `@SpringBootApplication` classes scan `com.edda21` so all adapters and application/domain components are picked up automatically.
-
----
-
-## 4) Prerequisites
-
-* **Java 21**, **Gradle 8+**
-* **Docker** + **Docker Compose**
-* Optional: `psql` client (for manual DB checks)
+- **Java 21**, **Gradle 8+**
+- **Docker** + **Docker Compose**
+- Optional: `psql` client (for manual DB checks)
 
 **Ports in use (typical setup):**
 
-* 8080 — API Gateway
-* 8761 — Eureka
-* 8888 — Config Server
-* 8082 — backend
-* 8083 — question-provider
-* 8098 — llm-bridge
-* 9092 — Kafka / Redpanda
-* 5432 — Postgres
+- 8080 — API Gateway
+- 8761 — Eureka
+- 8888 — Config Server
+- 8082 — backend
+- 8083 — question-provider
+- 8098 — llm-bridge
+- 9092 — Kafka / Redpanda
+- 5432 — Postgres
 
 ---
 
-## 5) Build & Packaging
+## 4) Build & packaging
 
-From the repository root:
+Run all commands from the Gradle root (the directory that contains `settings.gradle` and `docker-compose.yml`).
+
+### 4.1 Build JARs
 
 ```bash
-# Build JARs
 ./gradlew \
   :services:backend:bootJar \
   :services:question-provider:bootJar \
@@ -268,45 +105,84 @@ From the repository root:
   :platform:api-gateway:bootJar \
   :platform:service-registry:bootJar \
   :platform:config-server:bootJar
-
-# Build Docker images (tags unified to edda21/*)
-docker build -t edda21/backend:dev            -f services/backend/Dockerfile .
-docker build -t edda21/question-provider:dev  -f services/question-provider/Dockerfile .
-docker build -t edda21/llm-bridge:dev         -f services/llm-bridge/Dockerfile .
-docker build -t edda21/api-gateway:dev        -f platform/api-gateway/Dockerfile .
-docker build -t edda21/service-registry:dev   -f platform/service-registry/Dockerfile .
-docker build -t edda21/config-server:dev      -f platform/config-server/Dockerfile .
 ```
 
-> For the minimal “LLM flow”, you mostly need `backend`, `question-provider`, `llm-bridge` plus the platform trio
-> (`config-server`, `service-registry`, `api-gateway`) when routing via gateway.
+### 4.2. Testcontainers with OrbStack on macOS
+
+Some integration tests use Testcontainers and require a working local Docker engine.
+
+If you use OrbStack, switching the Docker CLI context may be enough for terminal commands, 
+but Testcontainers running from IntelliJ IDEA or Gradle may still fail with:
+
+```text
+Could not find a valid Docker environment
+```
+
+If this happens, create a ~/.testcontainers.properties file with the following content:
+```bash
+docker.client.strategy=org.testcontainers.dockerclient.EnvironmentAndSystemPropertyClientProviderStrategy
+docker.host=unix\:///Users/<your-user>/.orbstack/run/docker.sock
+```
+
+### 4.3 Build Docker images (tags unified to `edda21/*:dev`)
+
+Important: `backend` and `question-provider` Dockerfiles copy `build/libs/*.jar`, so their build context must be the
+service directory (not the repo root).
+
+```bash
+# backend + question-provider (context = service directory)
+docker build -t edda21/backend:dev           -f services/backend/Dockerfile services/backend
+docker build -t edda21/question-provider:dev -f services/question-provider/Dockerfile services/question-provider
+
+# llm-bridge + platform services (Dockerfiles expect repo-root context)
+docker build -t edda21/llm-bridge:dev        -f services/llm-bridge/Dockerfile .
+docker build -t edda21/api-gateway:dev       -f platform/api-gateway/Dockerfile .
+docker build -t edda21/service-registry:dev  -f platform/service-registry/Dockerfile .
+docker build -t edda21/config-server:dev     -f platform/config-server/Dockerfile .
+```
 
 ---
 
-## 6) Configuration
+## 5) Configuration
 
-### 6.1. Docker Compose Environment
+### 5.1 Docker Compose environment (recommended)
 
-`docker-compose.yml` defines environment variables with sensible defaults:
+`docker-compose.yml` wires services together and provides defaults.
 
-* **Kafka / Redpanda**: broker at `redpanda:9092` inside the compose network.
-* **Postgres**:
+Key variables you should keep consistent with the code:
 
-    * `POSTGRES_DB=edtech`
-    * `POSTGRES_USER=postgres`
-    * `POSTGRES_PASSWORD=postgres`
-* **LLM Bridge**:
+- **Kafka** (used by `backend` producer and `question-provider` consumers)
+  - `KAFKA_BOOTSTRAP=redpanda:9092`
 
-    * `LLM_MODE=MOCK` by default.
-    * For OpenAI:
+- **Postgres**
+  - `POSTGRES_DB=edda21`
+  - `POSTGRES_USER=postgres`
+  - `POSTGRES_PASSWORD=postgres`
+  - `SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/edda21` (for services that use Spring datasource directly)
 
-        * `LLM_MODE=OPENAI`
-        * `SPRING_AI_OPENAI_API_KEY=<your_key>`
-        * `SPRING_AI_MODEL=gpt-4o-mini` (or another supported model).
+- **Question-provider → LLM bridge HTTP**
+  - `LLM_BASE_URL=http://llm-bridge:8098`
+    - maps to property `llm.base-url`
+    - required in Docker (otherwise the default points to `localhost`)
 
-### 6.2. Gateway Routes (Config Server)
+- **LLM Bridge mode**
+  - `GENERATOR_MODE=stub` (default, deterministic)
+  - `GENERATOR_MODE=llm` (OpenAI via Spring AI)
 
-`config-repo/api-gateway-docker.yml` (mounted to config-server) enables routes like:
+- **OpenAI (only when `GENERATOR_MODE=llm`)**
+  - `SPRING_AI_OPENAI_API_KEY=<your_key>`
+  - `SPRING_AI_MODEL=gpt-4o-mini` (optional override)
+
+### 5.2 Gateway routes (Config Server)
+
+The gateway reads routes from `config-repo/api-gateway-docker.yml` (mounted into `config-server`).
+
+For a working “single entrypoint” setup via gateway, ensure you route at least:
+
+- `backend`: `/auth/**`, `/assignments/**`, `/question-sessions/**`
+- (optional) `llm-bridge`: `/llm/**` for manual testing
+
+Example config:
 
 ```yaml
 spring:
@@ -315,141 +191,243 @@ spring:
       routes:
         - id: backend
           uri: lb://backend
-          predicates: [ Path=/assignments/**, /auth/**, /courses/** ]
-        - id: question-provider
-          uri: lb://question-provider
-          predicates: [ Path=/qp/** ]
+          predicates:
+            - Path=/auth/**,/assignments/**,/question-sessions/**
+        - id: llm-bridge
+          uri: lb://llm-bridge
+          predicates:
+            - Path=/llm/**
 ```
 
-> This uses **Eureka** to resolve `lb://serviceId`.
+If you do not add these routes, you can still call services directly by their ports (e.g. backend on `:8082`).
 
 ---
 
-## 7) Run the Stack
+## 6) Run the stack
 
 ```bash
-# Start everything
 docker compose up -d
-
-# Check containers
 docker compose ps
 ```
 
-(Optional) Explicitly create topics on Redpanda (if you prefer manual creation):
+(Optional) Explicitly create topics on Redpanda (manual setup):
 
 ```bash
 docker compose exec redpanda rpk topic create questions.request questions.response questions.dlq
 ```
 
-**Health checks / UIs:**
+**Useful endpoints (local):**
 
-* Eureka: [http://localhost:8761](http://localhost:8761)
-* API Gateway: [http://localhost:8080](http://localhost:8080)
-* LLM Bridge (MOCK default): [http://localhost:8098/actuator/health](http://localhost:8098/actuator/health)
+```text
+Eureka:        http://localhost:8761
+Config Server: http://localhost:8888/actuator/health
+Gateway:       http://localhost:8080/actuator/health
+Backend:       http://localhost:8082/actuator/health
+LLM Bridge:    http://localhost:8098/actuator/health
+```
 
 ---
 
-## 8) Test the Flow (Example)
+## 7) Bootstrap demo data (one-time)
 
-> Exact URLs and payloads will depend on the current controller mappings; this is a conceptual sketch.
+There is no “register” endpoint; auth validates users against the database.
+For local demo you can create a single instructor user + one assignment.
 
-1. Authenticate as instructor:
+Below assumes `POSTGRES_DB=edda21` and default credentials.
 
 ```bash
-curl -X POST http://localhost:8080/auth/login \
+docker compose exec -T postgres psql -U postgres -d edda21 <<'SQL'
+-- Clean up if re-running the script
+delete from instructor where user_id in (select id from "user" where username = 'instructor1');
+delete from "user" where username = 'instructor1';
+
+-- Create an INSTRUCTOR user:
+-- password = "secret"
+-- bcrypt hash was generated with cost=10; any valid BCrypt hash is fine.
+with u as (
+  insert into "user"(username, password_hash, role, enabled)
+  values (
+    'instructor1',
+    '$2b$10$RrUb06IZRwz57zeuPXuqG.sIfnDbdctTgbZAHBbVCgNQ8ubFdcmHG',
+    'INSTRUCTOR',
+    true
+  )
+  returning id
+)
+insert into instructor(user_id)
+select id from u;
+
+-- Create a demo assignment (course_id is a UUID placeholder; there is no course table in V1 schema).
+insert into assignment(id, course_id, title)
+values (
+  '00000000-0000-0000-0000-000000000001',
+  '00000000-0000-0000-0000-000000000010',
+  'Demo assignment'
+)
+on conflict (id) do update set title = excluded.title;
+
+-- Seed a few questions so DB selection can pick them up in DB_ONLY / DB_THEN_LLM modes.
+insert into question(id, source, subject, difficulty, body, correct)
+values
+  (gen_random_uuid(), 'BANK', 'MATH', 'B1', 'What is 2+2?', '4'),
+  (gen_random_uuid(), 'BANK', 'MATH', 'B1', 'What is 3+5?', '8')
+on conflict (id) do nothing;
+SQL
+```
+
+If you want to generate your own BCrypt hash quickly:
+
+```bash
+# Linux/macOS (apache2-utils):
+# htpasswd -bnBC 10 "" secret | tr -d ':\n' ; echo
+```
+
+---
+
+## 8) Test the system
+
+### 8.1 Login (backend)
+
+If you configured the gateway routes (section 5.2), use `:8080`. Otherwise call backend directly on `:8082`.
+
+```bash
+BASE_URL=http://localhost:8080  # or http://localhost:8082
+
+curl -s -X POST "$BASE_URL/auth/login" \
   -H "Content-Type: application/json" \
   -d '{"username":"instructor1","password":"secret"}'
 ```
 
-Receive a JWT with `role=INSTRUCTOR` and `instructorId` claim.
+The response contains:
 
-2. Create a question generation session for an assignment:
+```json
+{ "accessToken": "<jwt>", "role": "INSTRUCTOR" }
+```
+
+### 8.2 Create a question generation session (DB_ONLY)
+
+This mode completes immediately and is the simplest end-to-end check.
 
 ```bash
+TOKEN="<paste_accessToken_here>"
 ASSIGNMENT_ID=00000000-0000-0000-0000-000000000001
+COURSE_ID=00000000-0000-0000-0000-000000000010
 
-curl -X POST "http://localhost:8080/api/sessions" \
+curl -s -X POST "$BASE_URL/question-sessions" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
+        "courseId": "'"$COURSE_ID"'",
         "assignmentId": "'"$ASSIGNMENT_ID"'",
-        "requestedCount": 5,
-        "sourceMode": "DB_THEN_LLM",
-        "subject": "MATH",
-        "topic": "algebra"
+        "requestedCount": 2,
+        "mode": "DB_ONLY",
+        "filters": {
+          "subject": "MATH",
+          "difficulty": "B1"
+        }
       }'
 ```
 
-Expected response (shape may differ in code):
-
-```json
-{
-  "sessionId": "d9c9e51e-...-...",
-  "status": "PENDING",
-  "requestedCount": 5
-}
-```
-
-3. Backend:
-
-* inserts `question_generation_session` row,
-* selects questions from DB (if `DB_ONLY` or `DB_THEN_LLM`),
-* if more questions are needed from LLM, produces `QuestionGenerationRequestPayload` to `questions.request`.
-
-4. Question-provider / llm-bridge:
-
-* consumes `questions.request`,
-* calls `llm-bridge /llm/generate`,
-* persists questions,
-* updates `question_generation_session` with `llm_generated_count`, `status`, `result_code`.
-
-5. Poll session status:
+### 8.3 Read session status
 
 ```bash
-curl -X GET "http://localhost:8080/api/sessions/{sessionId}" \
+SESSION_ID="<paste_sessionId_here>"
+
+curl -s -X GET "$BASE_URL/question-sessions/$SESSION_ID" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-Response eventually becomes (example):
+There is also a convenience endpoint:
 
-```json
-{
-  "sessionId": "d9c9e51e-...-...",
-  "status": "COMPLETED",
-  "requestedCount": 5,
-  "dbSelectedCount": 2,
-  "llmGeneratedCount": 3,
-  "resultCode": "OK_FULL"
-}
+```bash
+curl -s -X GET "$BASE_URL/question-sessions/by-assignment/$ASSIGNMENT_ID" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### 8.4 Test LLM Bridge directly
+
+The LLM bridge exposes:
+
+- `POST /llm/generate` → returns a JSON array of `QuestionDTO`
+
+```bash
+curl -s -X POST http://localhost:8098/llm/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+        "subject": "MATH",
+        "topic": "algebra",
+        "difficulty": "B1",
+        "type": "MULTI_CHOICE",
+        "count": 3,
+        "locale": "en"
+      }'
+```
+
+When `GENERATOR_MODE=stub`, the output is deterministic and requires no API key.
+When `GENERATOR_MODE=llm`, the service calls OpenAI via Spring AI.
+
+### 8.5 DB_THEN_LLM / LLM_ONLY session notes (WIP wiring)
+
+`backend` produces a Kafka request with this Java payload shape:
+
+- `sessionId`, `courseId`, `assignmentId`
+- `requestedCount`, `missingCount`
+- `mode` (DB_ONLY / DB_THEN_LLM / LLM_ONLY)
+- `filters` (free-form map)
+
+Session completion requires an LLM worker to publish a response to `questions.response` in the
+`LlmQuestionsResponsePayload` shape (consumed by `question-provider`'s LLM result processor).
+
+If you are only running the Java services from this repo, prefer `DB_ONLY` for a fully completed session,
+and test `llm-bridge` directly (section 8.4).
+
+---
+
+## 9) Switching LLM modes
+
+In `docker-compose.yml`, for `llm-bridge`:
+
+```yaml
+environment:
+  GENERATOR_MODE: stub
+```
+
+To enable OpenAI:
+
+```yaml
+environment:
+  GENERATOR_MODE: llm
+  SPRING_AI_OPENAI_API_KEY: ${SPRING_AI_OPENAI_API_KEY}
+  SPRING_AI_MODEL: gpt-4o-mini
+```
+
+Restart only the bridge:
+
+```bash
+docker compose up -d --force-recreate llm-bridge
 ```
 
 ---
 
-## 9) Switching LLM Modes
+## 10) Running tests
 
-* **MOCK** mode (default) requires no external credentials and returns deterministic data.
-* **OpenAI** mode:
+Run the full test suite:
 
-    * In `docker-compose.yml` for `llm-bridge`:
+```bash
+./gradlew test
+```
 
-      ```yaml
-      environment:
-        - LLM_MODE=OPENAI
-        - SPRING_AI_OPENAI_API_KEY=your_api_key
-        - SPRING_AI_MODEL=gpt-4o-mini
-      ```
+Or target a module:
 
-    * Restart only the LLM bridge:
-
-      ```bash
-      docker compose up -d --force-recreate llm-bridge
-      ```
-
-The `question-provider` always calls `llm-bridge` over HTTP and accepts the same JSON shape.
+```bash
+./gradlew :services:backend:test
+./gradlew :services:question-provider:test
+./gradlew :services:llm-bridge:test
+```
 
 ---
 
-## 10) Scaling Consumers
+## 11) Scaling consumers
 
 Simulate a consumer group with multiple instances:
 
@@ -457,61 +435,20 @@ Simulate a consumer group with multiple instances:
 docker compose up -d --scale question-provider=3
 ```
 
-Kafka will assign partitions to instances in the same group (e.g. `question-provider-group`).
-
-Per-instance concurrency can also be increased in Spring Kafka configuration (e.g. `concurrency = 2`), resulting in
-total parallelism = `instances × concurrency`.
+Kafka will assign partitions to instances in the same group.
 
 ---
 
-## 11) Troubleshooting
+## 12) Troubleshooting
 
-* **Gateway 404**: ensure Eureka and Config Server are up. Gateway relies on config server for routes and on Eureka to
-  discover instances.
-* **Kafka connection errors**: verify `redpanda` is healthy and exposed on `9092` inside the compose network.
-* **Postgres auth**: defaults are set in compose; check `JDBC_URL`, `JDBC_USER`, `JDBC_PASS` envs in
-  `question-provider` and `backend`.
-* **LLM Bridge errors**: in `MOCK` mode it should always work; for `OPENAI` verify your API key and model
-  (`SPRING_AI_MODEL`).
+- **Gateway 404**: ensure the gateway routes exist in `config-repo/api-gateway-docker.yml` and `config-server` is healthy.
+- **Kafka connection errors**: ensure `KAFKA_BOOTSTRAP=redpanda:9092` is set for services and `redpanda` is healthy.
+- **LLM bridge returns stub data**: check `GENERATOR_MODE` is `llm` and `SPRING_AI_OPENAI_API_KEY` is present.
+- **Auth errors**: verify the demo user exists in the DB and the password is a valid BCrypt hash.
 
 ---
 
-## 12) Database Summary (example)
-
-**Tables (subset for question flow)**
-
-* `question(id uuid PK, source, subject, difficulty, body, correct, ... )`
-* `assignment(id uuid PK, course_id uuid, title, ...)`
-* `assignment_question(assignment_id, question_id, variant, points, ordering)`
-* `question_generation_session(id uuid PK, assignment_id, requested_count, db_selected_count, llm_generated_count, status, result_code, ...)`
-* `answer(id uuid PK default gen_random_uuid(), assignment_id, question_id, student_id, score, answered_at)`
-
-**View (optional example)**
-
-* `v_course_progress` (analytics using CTE + window functions)
-
-Example query:
-
-```sql
-select * from v_course_progress
-order by accuracy desc nulls last, total_answered desc
-limit 20;
-```
-
----
-
-## 13) Suggested Extensions
-
-* Add **Resilience4j** (`@Retry`, `@CircuitBreaker`) to the HTTP call from `question-provider` → `llm-bridge`.
-* Add a **DLQ** (e.g. `questions.dlq`) and forward messages on parsing/validation failures.
-* Implement **Outbox** pattern in `backend` for reliable publish-after-DB-change.
-* Create **materialized views** for reporting dashboards and KPIs.
-* Add **JWT** auth at the **Gateway** and propagate identity to services (Spring Security).
-* Extend question generation to support multiple LLM providers (OpenAI, local models, etc.) behind the same ports.
-
----
-
-## 14) Clean Up
+## 13) Clean up
 
 ```bash
 docker compose down        # stop containers

@@ -1,5 +1,5 @@
 # Build from repo root:
-# docker build -t edtech/config-server -f platform/config-server/Dockerfile .
+# docker build -t edda21/config-server -f platform/config-server/Dockerfile .
 
 FROM eclipse-temurin:21-jre AS extractor
 WORKDIR /workspace

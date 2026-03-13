@@ -11,7 +11,7 @@ services:
     image: postgres:16
     container_name: edda-postgres
     environment:
-      POSTGRES_DB: edtech
+      POSTGRES_DB: edda21
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports: ['5432:5432']
@@ -19,7 +19,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d edtech"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d edda21"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -100,7 +100,7 @@ services:
       # Kafka
       KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
       # Если backend сам не ходит в БД — можно убрать следующие строки.
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/edtech
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/edda21
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
     depends_on:
@@ -121,7 +121,7 @@ services:
       # Kafka
       KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
       # Postgres
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/edtech
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/edda21
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       # LLM bridge HTTP base (если сервис обращается по прямому URL)

@@ -1,5 +1,5 @@
 # Build from repo root:
-# docker build -t edtech/llm-bridge -f services/llm-bridge/Dockerfile .
+# docker build -t edda21/llm-bridge -f services/llm-bridge/Dockerfile .
 
 FROM eclipse-temurin:21-jre AS extractor
 WORKDIR /workspace
