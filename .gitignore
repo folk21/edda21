@@ -12,6 +12,7 @@ bin
 out
 build
 **/node_modules/
+**/.structurizr
 **/build/
 .gradle
 .env
