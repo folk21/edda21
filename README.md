@@ -10,6 +10,24 @@ It uses:
   - `generator.mode=stub` (deterministic, no credentials)
   - `generator.mode=llm` (OpenAI via Spring AI)
 
+
+### Architecture and Product Documentation
+
+Additional project documentation is available in the `docs/` directory.
+
+- `docs/architecture/`
+    - system overview
+    - module map
+    - runtime flows
+    - local deployment notes
+    - quality attributes
+    - ADRs
+    - Structurizr workspace files
+- `docs/product/`
+    - product vision
+    - business requirements
+    - use cases
+
 ---
 
 ## 1) Project description
