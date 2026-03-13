@@ -1,12 +1,13 @@
 # edda21 documentation set
 
-This folder was prepared from the current `edda21` repository snapshot.
+This folder contains the project documentation for edda21.
 
-It intentionally separates:
-- architecture documents that describe the codebase as it exists today
-- product documents that also preserve the broader target-state requirements
+The documentation is organized into two main sections:
 
-## Map
+- architecture documents describing the system structure, components, and technical design
+- product documents covering the product scope, expected capabilities, and key use cases
 
-- `architecture/` contains current-system and technical design documents
-- `product/` contains product scope, target capabilities, and use cases
+## Structure
+
+- `architecture/` — system architecture and technical design materials
+- `product/` — product-level documentation, scope, and use cases
